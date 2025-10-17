@@ -1,0 +1,2 @@
+# Noble
+a discord bot
