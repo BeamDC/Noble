@@ -1,5 +1,5 @@
 #[macro_export]
-macro_rules! make_token {
+macro_rules! consume_while {
     ($c:expr, $self:ident, $pattern:pat $(if $guard:expr)? $(,)?) => ({
         let mut acc = String::new();
         acc.push($c);

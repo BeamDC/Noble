@@ -1,6 +1,6 @@
 use std::iter::Peekable;
 use std::str::Chars;
-use crate::make_token;
+use crate::{consume_while};
 
 #[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Token {
@@ -52,16 +52,16 @@ impl<'tt> TextTokenizer<'tt> {
         while let Some(c) = self.next() {
             match c {
                 '0'..='9' => {
-                    tokens.push(Token::Number(make_token!(c, self, '0'..='9')));
+                    tokens.push(Token::Number(consume_while!(c, self, '0'..='9')));
                 }
                 'a'..='z' | 'A'..='Z' => {
                     tokens.push(Token::Word(
-                        make_token!(c, self, 'a'..='z' | 'A'..='Z' | '_' | '-' | '\'')
+                        consume_while!(c, self, 'a'..='z' | 'A'..='Z' | '_' | '-' | '\'')
                     ));
                 }
                 ' ' | '\t' | '\n' | '\r' => {
                     tokens.push(Token::Whitespace(
-                        make_token!(c, self, ' ' | '\t' | '\n' | '\r')
+                        consume_while!(c, self, ' ' | '\t' | '\n' | '\r')
                     ));
                 }
                 '.' | ',' | '!' | '?' | ';' | ':' => {
