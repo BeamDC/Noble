@@ -2,7 +2,7 @@ use std::iter::Peekable;
 use std::str::Chars;
 use crate::make_token;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, PartialOrd, Ord, PartialEq, Eq)]
 pub enum Token {
     Word(String),
     Number(String),
@@ -11,14 +11,26 @@ pub enum Token {
     Whitespace(String),
 }
 
-pub struct TextTokenizer<'tl> {
-    text: Peekable<Chars<'tl>>,
+impl Token {
+    pub fn to_string(&self) -> String {
+        match self {
+            Token::Word(s) => s.clone(),
+            Token::Number(s) => s.clone(),
+            Token::Symbol(c) => c.to_string(),
+            Token::Punctuation(c) => c.to_string(),
+            Token::Whitespace(s) => s.clone(),
+        }
+    }
+}
+
+pub struct TextTokenizer<'tt> {
+    text: Peekable<Chars<'tt>>,
     start: usize,
     current: usize,
 }
 
-impl<'tl> TextTokenizer<'tl> {
-    pub fn new(text: &'tl str) -> Self {
+impl<'tt> TextTokenizer<'tt> {
+    pub fn new(text: &'tt str) -> Self {
         Self {
             text: text.chars().peekable(),
             start: 0,
@@ -44,7 +56,7 @@ impl<'tl> TextTokenizer<'tl> {
                 }
                 'a'..='z' | 'A'..='Z' => {
                     tokens.push(Token::Word(
-                        make_token!(c, self, 'a'..='z' | 'A'..='Z')
+                        make_token!(c, self, 'a'..='z' | 'A'..='Z' | '_' | '-' | '\'')
                     ));
                 }
                 ' ' | '\t' | '\n' | '\r' => {
