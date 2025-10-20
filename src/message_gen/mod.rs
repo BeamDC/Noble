@@ -1,8 +1,7 @@
-use std::path::Path;
-use std::rc::Rc;
-use rand::prelude::IteratorRandom;
 use crate::message_gen::text_db::TextDB;
 use crate::message_gen::tokenizer::Token;
+use rand::prelude::IteratorRandom;
+use std::path::Path;
 
 pub mod text_db;
 pub mod tokenizer;
@@ -17,50 +16,56 @@ pub enum MessageGenError {
 pub struct MessageGenerator {
     /// the database containing the reference text
     db: TextDB,
-    /// how many tokens of context are given when generating the next token
-    context: usize,
-    stream: Rc<[String]>,
-    stream_size: usize,
-    stream_pos: usize,
+    /// the number of tokens used to compose a message
+    message_len: usize,
 }
 
 impl MessageGenerator {
-    const MAX_STREAM_SIZE:  usize = 256;
+    /// a context size of 2 words
     pub const LOW_PRECISION:  usize = 2;
+    /// a context size of 4 words
     pub const MED_PRECISION:  usize = 4;
+    /// a context size of 8 words
     pub const HIGH_PRECISION: usize = 8;
 
-    /// construct a new [`MessageGenerator`] from a given [`TextDB`] and context size
+    /// construct a new [`MessageGenerator`] from a given
+    /// [`TextDB`], context size, and message length.
     #[must_use]
     pub fn new(db: TextDB, context: usize, message_len: usize) -> Self {
-        let stream = Self::generate_stream(&db.clone(), message_len);
-        let stream_size = stream.len();
-
+        // todo : some data may not be able to have a context size as large what what is specified,
+        // in this case we will either need to clamp it to a lower value, or return an error.
         Self {
             db,
-            context,
-            stream,
-            stream_size,
-            stream_pos: 0,
+            message_len,
         }
     }
 
+    /// constructs a new [`MessageGenerator`] from a [`String`].
     #[must_use]
     pub fn from_string(string: String, context: usize, message_len: usize) -> Self {
         let db = TextDB::new(string, context);
         Self::new(db, context, message_len)
     }
 
+    /// constructs a new [`MessageGenerator`] from a file path.
     pub fn from_file<P: AsRef<Path>>(path: P, context: usize, message_len: usize) -> Result<Self, MessageGenError> {
         let db = TextDB::from_file(path, context)?;
         Ok(Self::new(db, context, message_len))
     }
 
-    fn generate_stream(db: &TextDB, len: usize) -> Rc<[String]> {
-        let mut rng = rand::thread_rng();
-        let mut messages = Vec::with_capacity(Self::MAX_STREAM_SIZE);
+    pub fn update<S: ToString>(&mut self, new: S, context_size: Option<usize>, message_len: Option<usize>) {
+        if let Some(context_size) = context_size {
+            self.db.context_size = context_size;
+        }
+        if let Some(message_len) = message_len {
+            self.message_len = message_len;
+        }
 
-        for _ in 0..Self::MAX_STREAM_SIZE {
+        self.db.update(new, self.db.context_size);
+    }
+
+    fn generate_message(db: &TextDB, len: usize) -> String {
+        let mut rng = rand::thread_rng();
             let mut tokens = Vec::with_capacity(len);
 
             // choose random start
@@ -89,20 +94,15 @@ impl MessageGenerator {
                 seed.push(next);
             }
 
-            messages.push(
-                tokens
-                    .iter()
-                    .map(|t| t.to_string())
-                    .collect::<String>()
-            );
-        }
-
-        Rc::from(messages)
+        tokens
+            .iter()
+            .map(|t| t.to_string())
+            .collect::<String>()
     }
 
-    pub fn next_message(&mut self) -> String {
-        let msg = self.stream[self.stream_pos].to_owned();
-        self.stream_pos += 1;
-        msg
+    /// returns the next message in the stream,
+    /// if the stream has been fully used, a new one will be generated.
+    pub fn next_message(&self) -> String {
+        Self::generate_message(&self.db, self.message_len)
     }
 }

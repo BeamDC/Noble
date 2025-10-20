@@ -1,14 +1,17 @@
-use serenity::all::{EventHandler, GatewayIntents};
-use serenity::{Client};
+use serenity::all::{GatewayIntents};
+use serenity::Client;
 use crate::bot::Noble;
 
 mod message_gen;
 mod bot;
 
+const BOT_TOKEN: &str = "BOT_TOKEN_HERE";
+
 #[tokio::main]
 async fn main() {
-    // Login with a bot token from the environment
-    let token = "TOKEN".to_owned();
+    // Login with a bot token
+    let token = BOT_TOKEN.to_owned();
+
     // Set gateway intents, which decides what events the bot will be notified about
     let intents = GatewayIntents::GUILD_MESSAGES
         | GatewayIntents::DIRECT_MESSAGES

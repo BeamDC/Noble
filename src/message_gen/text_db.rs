@@ -1,32 +1,33 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 use crate::message_gen::MessageGenError;
 use crate::message_gen::tokenizer::{TextTokenizer, Token};
 
 #[derive(Debug, Clone)]
 pub struct TextDB {
-    pub tokens: Rc<[Token]>,
+    source: Arc<str>,
+    tokens: Arc<[Token]>,
     pub context_size: usize,
-    pub context: Rc<HashMap<Vec<Token>, Vec<Token>>>,
+    pub context: Arc<HashMap<Vec<Token>, Vec<Token>>>,
 }
 
 impl TextDB {
     /// construct a new [`TextDB`] from a string
     pub fn new(src: String, context_size: usize) -> Self {
-        let tokens: Rc<[Token]> = Rc::from(
+        let tokens: Arc<[Token]> = Arc::from(
             TextTokenizer::new(&src).tokenize()
         );
 
         let mut context_map: HashMap<Vec<Token>, Vec<Token>> = HashMap::new();
-        let mut keys: Vec<Rc<[Token]>> = vec![];
+        let mut keys: Vec<Arc<[Token]>> = vec![];
         let mut values: Vec<Token> = vec![];
 
 
         for (i, w) in tokens.windows(context_size).enumerate() {
             if let Some(next_token) = tokens.get(i + context_size) {
-                keys.push(Rc::from(w.to_vec()));
+                keys.push(Arc::from(w.to_vec()));
                 values.push(next_token.clone());
             }
         }
@@ -39,10 +40,22 @@ impl TextDB {
         }
 
         Self {
+            source: Arc::from(src.as_str()),
             tokens,
             context_size,
-            context: Rc::new(context_map),
+            context: Arc::new(context_map),
         }
+    }
+
+    /// add `new` to the source string of this database,
+    /// and set the context size to `context_size`.
+    pub fn update<S: ToString>(&mut self, new: S, context_size: usize) {
+        let source = self.source.to_string() + new.to_string().as_str();
+        let db = Self::new(source, context_size);
+        self.source = db.source;
+        self.tokens = db.tokens;
+        self.context_size = db.context_size;
+        self.context = db.context;
     }
 
     /// construct a new [`TextDB`] from the contents of a file
