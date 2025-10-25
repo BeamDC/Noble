@@ -2,6 +2,7 @@ use crate::message_gen::text_db::TextDB;
 use crate::message_gen::tokenizer::Token;
 use rand::prelude::IteratorRandom;
 use std::path::Path;
+use rand::Rng;
 
 pub mod text_db;
 pub mod tokenizer;
@@ -53,6 +54,7 @@ impl MessageGenerator {
         Ok(Self::new(db, context, message_len))
     }
 
+    /// updates a [`MessageGenerator`] with extra context, and new settings if they are given.
     pub fn update<S: ToString>(&mut self, new: S, context_size: Option<usize>, message_len: Option<usize>) {
         if let Some(context_size) = context_size {
             self.db.context_size = context_size;
@@ -64,12 +66,18 @@ impl MessageGenerator {
         self.db.update(new, self.db.context_size);
     }
 
+    /// generates a new message from a [`TextDB`] with a given length.
+    ///
+    /// This is done by first choosing random context from the database,
+    /// and choosing random next tokens until the desired length is reached
+    /// or there are no possible words to generate.
     fn generate_message(db: &TextDB, len: usize) -> String {
         let mut rng = rand::thread_rng();
             let mut tokens = Vec::with_capacity(len);
+            let context = db.get_context_map();
 
             // choose random start
-            let mut seed = db.context
+            let mut seed = context
                 .keys()
                 .choose(&mut rng)
                 .unwrap()
@@ -79,7 +87,7 @@ impl MessageGenerator {
 
             // generate the rest of the message
             for _ in 0..len.saturating_sub(db.context_size) {
-                let next: Token = match db.context.get(&seed) {
+                let next: Token = match context.get(&seed) {
                     Some(toks) => {
                         toks.into_iter()
                             .choose(&mut rng)
@@ -102,7 +110,11 @@ impl MessageGenerator {
 
     /// returns the next message in the stream,
     /// if the stream has been fully used, a new one will be generated.
-    pub fn next_message(&self) -> String {
-        Self::generate_message(&self.db, self.message_len)
+    pub fn next_message(&self, trigger_chance: usize) -> Option<String> {
+        let mut rng = rand::thread_rng();
+        let trigger_chance = rng.gen_range(0..trigger_chance);
+
+        if trigger_chance != 0 { None }
+        else { Some(Self::generate_message(&self.db, self.message_len)) }
     }
 }
